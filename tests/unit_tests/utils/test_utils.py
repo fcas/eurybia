@@ -1,12 +1,14 @@
 """
 Unit test utils.py
 """
+
 import os
 import unittest
 from pathlib import Path
 
 import pandas as pd
 
+from eurybia import SmartDrift
 from eurybia.utils.utils import base_100, convert_string_to_int_keys, get_project_root, round_to_k, truncate_str
 
 

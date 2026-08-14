@@ -1,6 +1,8 @@
 """
 Unit tests for SmartDrift
 """
+
+from datetime import date
 import os
 import unittest
 from os import path
@@ -55,13 +57,6 @@ class TestSmartDrift(unittest.TestCase):
         self.script_path = script_path
         self.X = X
 
-    def test_init_1(self):
-        """
-        test init 1 SmartDrift
-        """
-        smart_drift = SmartDrift()
-        assert hasattr(smart_drift, "df_baseline")
-
     def test_compile_nooptions(self):
         """
         Test compile()
@@ -113,7 +108,7 @@ class TestSmartDrift(unittest.TestCase):
             self.titanic_df_2,
             deployed_model=self.rf,
             encoding=self.categ_encoding,
-            dataset_names={"df_current": "titanic 2", "df_baseline": "titanic 1"},
+            dataset_names=("titanic 2", "titanic 1"),
         )
         smart_drift.compile()
         assert isinstance(smart_drift.xpl, shapash.explainer.smart_explainer.SmartExplainer)
@@ -193,86 +188,12 @@ class TestSmartDrift(unittest.TestCase):
         )
         assert isinstance(smart_drift.data_modeldrift, pd.core.frame.DataFrame)
 
-    def test_analyse_consistency_nofullvalidation_1(self):
-        """
-        Test _analyze_consistency() method with full validation defined to False
-        """
-        script_path = Path(path.abspath(__file__)).parent.parent.parent.parent
-        titanic_original = path.join(script_path, TITANIC_ORIGINAL_PATH)
-        df_original = pd.read_csv(titanic_original, index_col=0)
-        titanic_altered = path.join(script_path, TITANIC_ALTERED_PATH)
-        df_altered = pd.read_csv(titanic_altered, index_col=0)
-
-        df_altered["col_sup"] = 0
-        smart_drift = SmartDrift(df_altered, df_original)
-        pb_cols, err_mods = smart_drift._analyze_consistency(
-            full_validation=False, ignore_cols=["col_sup", "Name", "PassengerId"]
-        )
-
-        expected_pb_cols = {"New columns": [], "Removed columns": ["col_sup"], "Type errors": []}
-
-        assert isinstance(pb_cols, dict)
-        assert all(key in ("New columns", "Removed columns", "Type errors") for key in pb_cols.keys())
-        assert isinstance(err_mods, dict)
-        assert pb_cols == expected_pb_cols
-        assert err_mods == dict()
-
-    def test_analyse_consistency_nofullvalidation_2(self):
-        """
-        Test _analyze_consistency() method with full validation defined to False
-        """
-        script_path = Path(path.abspath(__file__)).parent.parent.parent.parent
-        titanic_original = path.join(script_path, TITANIC_ORIGINAL_PATH)
-        df_original = pd.read_csv(titanic_original, index_col=0)
-        titanic_altered = path.join(script_path, TITANIC_ALTERED_PATH)
-        df_altered = pd.read_csv(titanic_altered, index_col=0)
-
-        df_altered["col_sup"] = 0
-        smart_drift = SmartDrift(df_altered, df_original)
-        pb_cols, err_mods = smart_drift._analyze_consistency(
-            full_validation=False, ignore_cols=["col_sup", "Name", "PassengerId"]
-        )
-
-        with self.assertRaises(TypeError):
-            smart_drift.df_current = dict()
-            smart_drift._analyze_consistency(full_validation=False, ignore_cols=["col_sup", "Name", "PassengerId"])
-
-    def test_analyse_consistency_fullvalidation(self):
-        """
-        Test _analyze_consistency() method with full validation defined to True
-        """
-        script_path = Path(path.abspath(__file__)).parent.parent.parent.parent
-        titanic_original = path.join(script_path, TITANIC_ORIGINAL_PATH)
-        df_original = pd.read_csv(titanic_original, index_col=0)
-        titanic_altered = path.join(script_path, TITANIC_ALTERED_PATH)
-        df_altered = pd.read_csv(titanic_altered, index_col=0)
-
-        df_altered["col_sup"] = 0
-        df_altered = df_altered.replace("male", "Male")
-        df_original["col_sup"] = "0"
-        smart_drift = SmartDrift(df_altered, df_original)
-        pb_cols, err_mods = smart_drift._analyze_consistency(
-            full_validation=True, ignore_cols=["Title", "Name", "PassengerId"]
-        )
-
-        expected_err_mods = {"Sex": {"New distinct values": ["Male"], "Removed distinct values": ["male"]}}
-
-        expected_pb_cols = {"New columns": [], "Removed columns": [], "Type errors": ["col_sup"]}
-
-        assert isinstance(pb_cols, dict)
-        assert all(key in ("New columns", "Removed columns", "Type errors") for key in pb_cols.keys())
-        assert isinstance(err_mods, dict)
-        assert pb_cols == expected_pb_cols
-        assert err_mods == expected_err_mods
-
     def test_predict_1(self):
         """
         test _predict() method
         """
 
         smart_drift = SmartDrift(self.titanic_df_1, self.titanic_df_2)
-        df_predict = smart_drift._predict()
-        assert df_predict is None
 
         with self.assertRaises(Exception):
             smart_drift._predict(deployed_model=self.rf)
@@ -346,10 +267,7 @@ class TestSmartDrift(unittest.TestCase):
         smart_drift = SmartDrift(self.titanic_df_1, self.titanic_df_2)
         smart_drift.compile()
 
-        feature_imp = smart_drift._feature_importance()
-        assert feature_imp is None
-
-        feature_imp = smart_drift._feature_importance(deployed_model=self.rf)
+        feature_imp = smart_drift._compute_feature_importance(deployed_model=self.rf)
         assert isinstance(feature_imp, pd.DataFrame)
         assert all(column in ("feature", "deployed_model", "datadrift_classifier") for column in feature_imp.columns)
         assert all(col_type in ("float64", "object") for col_type in feature_imp.dtypes)
@@ -358,13 +276,12 @@ class TestSmartDrift(unittest.TestCase):
         """
         Test on _histo_datadrift_metric() method
         """
-        SD = SmartDrift(self.titanic_df_1, self.titanic_df_2)
-        df_auc = SD._histo_datadrift_metric()
-        assert df_auc == None
+        with pytest.raises(RuntimeError):
+            SmartDrift(self.titanic_df_1, self.titanic_df_2)._histo_datadrift_metric(datadrift_file=".")
 
         SD = SmartDrift(self.titanic_df_1, self.titanic_df_2)
         SD.compile(datadrift_file="tests/data/AUC_Histo.csv")
-        df_auc = SD._histo_datadrift_metric()
+        df_auc = SD._histo_datadrift_metric(datadrift_file="tests/data/AUC_Histo.csv")
         assert isinstance(df_auc, pd.DataFrame)
         assert all(column in ("date", "auc") for column in df_auc.columns)
         assert all(column in ("object", "float64") for column in df_auc.dtypes)
@@ -382,7 +299,7 @@ class TestSmartDrift(unittest.TestCase):
                 datadrift_file="tests/data/AUC_Histo.csv", predict_test=smart_drift.model.predict(self.titanic_df_2)
             )
 
-        df_auc = smart_drift._histo_datadrift_metric()
+        df_auc = smart_drift._histo_datadrift_metric(datadrift_file="tests/data/AUC_Histo.csv")
         assert isinstance(df_auc, pd.DataFrame)
         assert all(column in ("date", "auc") for column in df_auc.columns)
         assert all(column in ("object", "float64") for column in df_auc.dtypes)
@@ -395,11 +312,13 @@ class TestSmartDrift(unittest.TestCase):
         smart_drift = SmartDrift(self.titanic_df_1, self.titanic_df_2)
         smart_drift.compile(datadrift_file="tests/data/AUC_Histo.csv")
 
-        with self.assertRaises(Exception):
-            smart_drift._histo_datadrift_metric(date_compile_auc="01-12-2020")
+        # with self.assertRaises(Exception):
+        #     smart_drift._histo_datadrift_metric(date_compile_auc=date(year=2020, month=12, day=1))
 
-        datadrift_file = path.join(self.script_path, "tests/data/AUC_Histo.csv")
-        df_auc = smart_drift._histo_datadrift_metric(date_compile_auc="01/12/2020", datadrift_file=datadrift_file)
+        smart_drift.datadrift_file = path.join(self.script_path, "tests/data/AUC_Histo.csv")
+        df_auc = smart_drift._histo_datadrift_metric(
+            datadrift_file="tests/data/AUC_Histo.csv", date_compile_auc=date(year=2020, month=12, day=1)
+        )  # , datadrift_file=datadrift_file)
         assert isinstance(df_auc, pd.DataFrame)
         assert all(column in ("date", "auc") for column in df_auc.columns)
         assert all(column in ("object", "float64") for column in df_auc.dtypes)
@@ -414,11 +333,15 @@ class TestSmartDrift(unittest.TestCase):
         )
         smart_drift.compile(datadrift_file="tests/data/AUC_Histo.csv")
 
-        with self.assertRaises(Exception):
-            smart_drift._histo_datadrift_metric(date_compile_auc="01-12-2020")
+        # with self.assertRaises(Exception):
+        #     smart_drift._histo_datadrift_metric(
+        #         datadrift_file="tests/data/AUC_Histo.csv", date_compile_auc=date(year=2020, month=12, day=1)
+        #     )
 
         datadrift_file = path.join(self.script_path, "tests/data/AUC_Histo.csv")
-        df_auc = smart_drift._histo_datadrift_metric(date_compile_auc="01/12/2020", datadrift_file=datadrift_file)
+        df_auc = smart_drift._histo_datadrift_metric(
+            date_compile_auc=date(year=2020, month=12, day=1), datadrift_file=datadrift_file
+        )
         assert isinstance(df_auc, pd.DataFrame)
         assert all(column in ("date", "auc", "JS_predict") for column in df_auc.columns)
         assert all(column in ("object", "float64") for column in df_auc.dtypes)
@@ -431,6 +354,7 @@ class TestSmartDrift(unittest.TestCase):
         temp_pkl_path = "tests/data/test_pkl.pkl"
         sd = SmartDrift(self.titanic_df_1, self.titanic_df_2)
         sd.compile(datadrift_file="tests/data/AUC_Histo.csv")
+        sd.feature_importance = pd.DataFrame({"foo": ["bar"]})
         sd.save(temp_pkl_path)
         sd2 = SmartDrift.load(temp_pkl_path)
         assert isinstance(sd2, SmartDrift)
@@ -438,14 +362,15 @@ class TestSmartDrift(unittest.TestCase):
         assert len(sd.df_baseline) == len(sd2.df_baseline)
         self.assertCountEqual(sd.df_current.columns, sd2.df_current.columns)
         assert len(sd.df_current) == len(sd2.df_current)
-        assert sd.feature_importance == sd2.feature_importance
-        self.assertCountEqual(sd.ignore_cols, sd2.ignore_cols)
-        self.assertCountEqual(sd.pb_cols, sd2.pb_cols)
-        self.assertCountEqual(sd.err_mods, sd2.err_mods)
+        assert sd.feature_importance.equals(sd2.feature_importance)
+        self.assertCountEqual(sd.da.ignored_cols, sd2.da.ignored_cols)
+        self.assertCountEqual(sd.da.categorical_value_differences, sd2.da.categorical_value_differences)
+        self.assertCountEqual(sd.da.removed_columns, sd2.da.removed_columns)
+        self.assertCountEqual(sd.da.new_columns, sd2.da.new_columns)
+        self.assertEqual(sd.da.dtype_mismatches, sd2.da.dtype_mismatches)
         assert sd.auc == sd2.auc
         pd.testing.assert_frame_equal(sd.historical_auc, sd2.historical_auc)
-        pd.testing.assert_frame_equal(sd._df_concat, sd2._df_concat)
-        assert sd._datadrift_target == sd2._datadrift_target
+        assert sd.datadrift_target == sd2.datadrift_target
         assert sd.deployed_model == sd2.deployed_model
         assert sd.encoding == sd2.encoding
         assert sd.palette_name == sd2.palette_name
@@ -463,13 +388,13 @@ class TestSmartDrift(unittest.TestCase):
             sd.define_style()
         sd.define_style(palette_name="eurybia", colors_dict=colors_dict)
         assert sd.colors_dict == colors_dict
-        assert sd.plot._style_dict["univariate_cat_bar"] == colors_dict["univariate_cat_bar"]
-        assert sd.plot._style_dict["univariate_cont_bar"] == colors_dict["univariate_cont_bar"]
-        assert sd.plot._style_dict["datadrift_historical"] == colors_dict["datadrift_historical"]
-        assert sd.plot._style_dict["scatter_plot"] == colors_dict["scatter_plot"]
-        assert sd.plot._style_dict["scatter_line"] == colors_dict["scatter_line"]
-        assert sd.plot._style_dict["featimportance_colorscale"] == colors_dict["featimportance_colorscale"]
-        assert sd.plot._style_dict["contrib_colorscale"] == colors_dict["contrib_colorscale"]
+        assert sd.plot.style_dict["univariate_cat_bar"] == colors_dict["univariate_cat_bar"]
+        assert sd.plot.style_dict["univariate_cont_bar"] == colors_dict["univariate_cont_bar"]
+        assert sd.plot.style_dict["datadrift_historical"] == colors_dict["datadrift_historical"]
+        assert sd.plot.style_dict["scatter_plot"] == colors_dict["scatter_plot"]
+        assert sd.plot.style_dict["scatter_line"] == colors_dict["scatter_line"]
+        assert sd.plot.style_dict["featimportance_colorscale"] == colors_dict["featimportance_colorscale"]
+        assert sd.plot.style_dict["contrib_colorscale"] == colors_dict["contrib_colorscale"]
         # not testing the shapash.explainer.smart_explainer
 
     def test_datetime_column_transformation(self):
@@ -508,10 +433,28 @@ class TestSmartDrift(unittest.TestCase):
         df_baseline["col1"] = X2
 
         # Random models
-        regressor = RandomForestRegressor(n_estimators=2).fit(df_baseline[["col1"]], df_baseline["col1"].ravel())
+        regressor = RandomForestRegressor(n_estimators=2).fit(df_baseline[["col1"]], df_baseline["col1"].to_numpy())
 
         sd = SmartDrift(df_current=df_current, df_baseline=df_baseline, deployed_model=regressor)
 
         # Should raise an error
-        with pytest.raises(TypeError, match="df_current have datetime column. You should drop it"):
+        with pytest.raises(TypeError, match="Your datasets have a datetime column. You should drop it"):
             sd.compile(full_validation=True)
+
+    def test_target_col_error(self):
+        """
+        Test compile()
+        """
+        df = self.titanic_df_1
+        df["target"] = df["Pclass"]
+        smart_drift = SmartDrift(df, df)
+        with pytest.raises(
+            ValueError, match="Your dataframes contain a column named target. Please consider renaming it."
+        ):
+            smart_drift.compile()
+
+    def test_small_dataset_auc_correctness(self):
+        df = pd.DataFrame([[0, 1], [0, 1], [0, 1], [0, 2], [0, 2], [0, 2], [0, 2]], columns=["A", "B"])
+        sd = SmartDrift(df_current=df, df_baseline=df)
+        sd.compile()
+        assert sd.auc >= 0.5

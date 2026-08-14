@@ -1,0 +1,89 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eurybia"
+version = "1.4.0"
+authors = [
+    {name = "Nicolas Roux"},
+    {name = "Thomas Bouché", email = "thomas.bouche@maif.fr"},
+    {name = "Johann Martin"},
+]
+description = "Eurybia monitor model drift over time and securize model deployment with data validation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache Software License 2.0"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pandas>=2,<3",
+    "catboost>=1.0.1",
+    "panel>=1.4.1",
+    "jinja2>=2.11.0",
+    "scipy>=1.4.0",
+    "seaborn>=0.10.1",
+    "shapash>=2.0.0",
+    "plotly",
+    "kaleido>=0.2.1,<1.0.0",
+]
+
+[project.optional-dependencies] # Optional
+all = ["eurybia[dev, test]"]
+dev = ["pre-commit", "mypy", "ruff"]
+test = ["pytest", "pytest-cov"]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+"*" = ["*.csv", "*json", "*.yml", "*.css", "*.js", "*.png"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+exclude = ["tests", "tutorial"]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 120
+exclude = [
+    "docs",
+    "tutorial",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "A",    # flake8-builtins
+    "PLC",  # pylint conventions
+    "PLE",  # pylint errors
+    "PLW",  # pylint warnings
+    "UP",   # pyupgrade
+    "S",    # flake8-bandit,
+    "B",    # flake8-bugbear
+    "I",    # isort
+    "D",    # pydocstyle
+    "NPY",  # NumPy-specific rules
+]
+ignore = ["D2", "D4"]
+exclude = ["tests/*"]
+
+[tool.ruff.lint.per-file-ignores]
+"eurybia/core/smartdrift.py" = ["S301"]
+"eurybia/data/data_loader.py" = ["S310"]
+"eurybia/report/common.py" = ["S301"]
+"eurybia/utils/io.py" = ["S301"]

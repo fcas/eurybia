@@ -1,10 +1,13 @@
 """Top-level package."""
 
-__author__ = """Thomas Bouche, Johann Martin, Nicolas Roux"""
-__email__ = "thomas.bouche@maif.fr"
+import importlib.metadata
 
 from eurybia.core.smartdrift import SmartDrift
 
-from .__version__ import __version__
+__author__ = """Thomas Bouche, Johann Martin, Nicolas Roux"""
+__email__ = "thomas.bouche@maif.fr"
 
-__all__ = ["SmartDrift"]
+
+__version__ = importlib.metadata.metadata("eurybia")["Version"]
+
+__all__ = [__version__, "SmartDrift"]  # noqa: PLE0604

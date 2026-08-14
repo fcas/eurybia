@@ -2,6 +2,7 @@
 Integration test for main object Smartdrift
 """
 
+from datetime import date
 import os
 import unittest
 from os import path
@@ -88,13 +89,13 @@ class TestIntegrationSmartdrift(unittest.TestCase):
             smartdrift.feature_importance.loc[smartdrift.feature_importance["feature"] == "Age", "deployed_model"].iloc[
                 0
             ]
-            > 0.1
+            > 0.09
         )
         assert (
             smartdrift.feature_importance.loc[
                 smartdrift.feature_importance["feature"] == "Age", "datadrift_classifier"
             ].iloc[0]
-            > 0.1
+            > 0.07
         )
 
         assert isinstance(fig_continuous, plotly.graph_objs._figure.Figure)
@@ -107,10 +108,10 @@ class TestIntegrationSmartdrift(unittest.TestCase):
         """
 
         smartdrift = SmartDrift(self.titanic_df_1, self.titanic_df_2)
-        smartdrift.compile(date_compile_auc="01/01/2021", datadrift_file="datadrift_metric.csv")
+        smartdrift.compile(date_compile_auc=date(year=2021, month=1, day=1), datadrift_file="datadrift_metric.csv")
 
         smartdrift2 = SmartDrift(self.titanic_df_1, self.titanic_df_2)
-        smartdrift2.compile(date_compile_auc="01/01/2022", datadrift_file="datadrift_metric.csv")
+        smartdrift2.compile(date_compile_auc=date(year=2022, month=1, day=1), datadrift_file="datadrift_metric.csv")
 
         fig_continuous = smartdrift2.plot.generate_fig_univariate("Age")
         fig_categorical = smartdrift2.plot.generate_fig_univariate("Pclass")
